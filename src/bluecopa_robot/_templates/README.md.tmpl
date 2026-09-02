@@ -1,0 +1,57 @@
+# {{robot_title}}
+
+{{robot_description}}
+
+A Bluecopa RPA robot. `main.py` → SDK `launch()` → `{{RobotClass}}.run_robot()` in
+`rpa/{{robot_module}}.py`.
+
+> **Building or deploying this?** Read [`docs/building-a-bluecopa-robot.md`](docs/building-a-bluecopa-robot.md) first.
+
+## Quick start (local)
+
+Use Python 3.9 to match the SDK wheel.
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m pip install libs\*.whl
+```
+
+Copy the sample config/params (real ones are git-ignored) and fill them in:
+
+```powershell
+copy secrets\config.sample.json secrets\config.json
+copy secrets\params.sample.json secrets\params.json
+```
+
+Run it:
+
+```powershell
+python main.py run --config secrets\config.json --params secrets\params.json --input-file-path dummy --output-folder-path .\output
+```
+
+The stub writes a placeholder file into `output\` so you can confirm the wiring before
+writing real logic.
+
+## Layout
+
+```
+{{robot_module}}/
+  main.py                 # entrypoint: launch({{RobotClass}}())
+  Dockerfile              # python:3.9-slim + SDK wheel
+  requirements.txt
+  libs/                   # the Bluecopa RPA SDK wheel
+  rpa/
+    {{robot_module}}.py   # {{RobotClass}} — your run_robot() logic
+    spec.json             # setup-form schema
+    Exceptions/
+  secrets/                # *.sample.json templates (real config/params git-ignored)
+  docs/
+    building-a-bluecopa-robot.md
+```
+
+## Deploy
+
+The robot ships as a Docker image pushed to an ECR repository your backend/infra team
+creates for it. The registry and repo path are client-specific — see
+[`docs/building-a-bluecopa-robot.md`](docs/building-a-bluecopa-robot.md) §7.

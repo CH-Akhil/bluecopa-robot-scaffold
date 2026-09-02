@@ -1,0 +1,40 @@
+# {{robot_title}} — robot orientation
+
+{{robot_description}}
+
+This is a Bluecopa RPA robot: a Python program the platform runs inside a container.
+`main.py` hands the robot to the SDK's `launch()`, which calls `run_robot(...)` on the
+`{{RobotClass}}` class in `rpa/{{robot_module}}.py`.
+
+## Important files
+
+| File | Purpose |
+|------|---------|
+| `docs/building-a-bluecopa-robot.md` | **Read first.** The runtime contract, config/spec traps, and the deploy checklist — the things that only bite once the robot is deployed. |
+| `rpa/{{robot_module}}.py` | The robot logic — `run_robot()` (a runnable stub is there now). |
+| `rpa/spec.json` | The setup-form schema. Drives the config the operator fills in. |
+| `secrets/*.sample.json` | Templates for local `config.json` / `params.json` (real ones are git-ignored). |
+| `Dockerfile` | `python:3.9-slim` + the SDK wheel. How the robot ships. |
+
+## Conventions (do not break)
+
+- **Ambient auth only.** Never hardcode credentials, a project id, or platform object
+  ids. GCS clients are created as `storage.Client()` with no arguments; the runtime
+  supplies credentials and project. Local dev uses env vars, never config.
+- **Read per-run inputs via `_unwrap_data(params)`** — inputs arrive in a `{"data": ...}`
+  envelope that may be a JSON string or an object. Handle both.
+- **The spec `required` + `default` trap.** A `default` in `spec.json` only pre-fills the
+  setup form — it is NOT injected into the runtime config. A `required` field that the
+  config doesn't carry makes the SDK reject the run **before** `run_robot` executes. So a
+  field is either genuinely required (missing ⇒ hard fail, no default saves you) or it is
+  optional and you default it in code. Decide deliberately.
+- **Deliver via `output_folder_path`.** Write output there; the platform delivers it.
+  Do not assume a destination path, bucket, or filebox — those are configured per client.
+- **Client-agnostic.** No client's repo name, registry, or ECR path belongs anywhere in
+  this robot. Deployment targets are created per client by backend/infra.
+
+## Self-maintenance
+
+When you change what config or params the robot reads, update **`rpa/spec.json`**, the
+**`secrets/*.sample.json`** files, and **`docs/building-a-bluecopa-robot.md`** in the same
+change. A setup field nobody documented is a deployment that breaks.

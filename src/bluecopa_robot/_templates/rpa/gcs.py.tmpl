@@ -1,0 +1,65 @@
+"""GCS helpers with ambient authentication.
+
+The client is created as storage.Client() with NO arguments — inside Bluecopa the
+runtime supplies credentials AND project. Never hardcode credentials or a project
+here. Locally, use `gcloud auth application-default login` + GOOGLE_CLOUD_PROJECT,
+or set GOOGLE_APPLICATION_CREDENTIALS to a service-account key file.
+"""
+import os
+import re
+import threading
+
+_client = None
+_client_lock = threading.Lock()
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        with _client_lock:
+            if _client is None:
+                from google.cloud import storage
+                _client = storage.Client()
+    return _client
+
+
+def parse_gs_uri(uri: str) -> tuple:
+    """Parse gs://bucket/path into (bucket, path)."""
+    match = re.match(r"^gs://([^/]+)/(.+)$", uri)
+    if not match:
+        raise ValueError(f"Invalid gs:// URI: {uri}")
+    return match.group(1), match.group(2)
+
+
+def list_blobs(bucket_name: str, prefix: str) -> list:
+    """List (name, size_bytes) for every blob under the given prefix."""
+    client = _get_client()
+    bucket = client.bucket(bucket_name)
+    return [
+        (b.name, b.size or 0)
+        for b in bucket.list_blobs(prefix=prefix)
+        if not b.name.endswith("/")
+    ]
+
+
+def download_blob(bucket_name: str, blob_name: str, dest_dir: str, timeout: float = 300) -> str:
+    """Download a blob into dest_dir (filename = blob path with / -> _). Returns the local path.
+
+    Also supports a local file path in place of blob_name, for offline testing.
+    """
+    safe_name = blob_name.replace("/", "_")
+    local_path = os.path.join(dest_dir, safe_name)
+    if os.path.exists(blob_name):
+        import shutil
+        shutil.copy2(blob_name, local_path)
+        return local_path
+    client = _get_client()
+    client.bucket(bucket_name).blob(blob_name).download_to_filename(local_path, timeout=timeout)
+    return local_path
+
+
+def upload_blob(local_path: str, bucket_name: str, dest_blob: str, timeout: float = 300) -> str:
+    """Upload a local file to gs://bucket/dest_blob. Returns the gs:// URI."""
+    client = _get_client()
+    client.bucket(bucket_name).blob(dest_blob).upload_from_filename(local_path, timeout=timeout)
+    return f"gs://{bucket_name}/{dest_blob}"

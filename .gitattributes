@@ -1,0 +1,5 @@
+# Robots run on Linux — keep all text files LF, regardless of the checkout OS.
+* text=auto eol=lf
+
+# The vendored SDK wheel is binary; never touch its bytes.
+*.whl binary

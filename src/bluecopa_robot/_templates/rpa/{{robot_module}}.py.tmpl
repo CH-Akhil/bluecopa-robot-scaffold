@@ -1,0 +1,68 @@
+import json
+import logging
+import os
+from typing import Any, List, Mapping, MutableMapping, Union
+
+from bluecopa_rpa_sdk.robots.abstract_robot import AbstractRobot
+
+# If you scaffolded with --gcs, rpa/gcs.py provides ambient-auth helpers:
+#     from rpa.gcs import list_blobs, download_blob, upload_blob
+
+
+class {{RobotClass}}(AbstractRobot):
+    """{{robot_title}} — {{robot_description}}.
+
+    Implement your logic in run_robot(). This stub runs out of the box: it reads
+    the params, logs them, and writes a placeholder file to output_folder_path so
+    you can verify the wiring before writing any real logic.
+
+    Read docs/building-a-bluecopa-robot.md first — it covers the runtime contract,
+    the config/spec traps, and how this runs once deployed.
+    """
+
+    def get_config_spec(self):
+        # The setup-form schema lives in rpa/spec.json (loaded by the SDK), not here.
+        return {}
+
+    def run_robot(
+        self,
+        logger: logging.Logger,
+        config: Mapping[str, Any],
+        input_file_path: str,
+        output_folder_path: str,
+        state: Union[List[Any], MutableMapping[str, Any]] = None,
+        params: Union[List[Any], MutableMapping[str, Any]] = None,
+    ):
+        config = config or {}
+
+        # Per-run inputs arrive via --params in a {"data": ...} envelope.
+        data = self._unwrap_data(params) if params else {}
+        logger.info("Config: %s", dict(config))
+        logger.info("Params data: %s", data)
+
+        # NOTE: input_file_path is the dropped trigger file (a local path). A
+        # params-driven robot usually ignores it and works from `data`. See
+        # docs/building-a-bluecopa-robot.md §2 and §5.
+
+        # TODO: implement your robot here. Read from `data` / `config`, do the
+        # work, and write your output into output_folder_path — the platform
+        # delivers whatever lands there.
+
+        os.makedirs(output_folder_path, exist_ok=True)
+        marker = os.path.join(output_folder_path, "{{robot_module}}_ran.txt")
+        with open(marker, "w", encoding="utf-8") as f:
+            f.write("{{RobotClass}} ran. Replace this stub with real logic.\n")
+        logger.info("Wrote placeholder output: %s", marker)
+
+    @staticmethod
+    def _unwrap_data(obj):
+        """Unwrap the Bluecopa {"data": ...} envelope (stringified OR object form)."""
+        if not isinstance(obj, dict):
+            return obj
+        data = obj.get("data", obj)
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return data

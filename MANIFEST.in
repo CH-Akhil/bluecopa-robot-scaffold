@@ -1,0 +1,4 @@
+# Ensure the full template tree (incl. dotfiles) and the SDK wheel ship in the
+# sdist/wheel — recursive-include matches leading-dot files, unlike a bare glob.
+recursive-include src/bluecopa_robot/_templates *
+recursive-include src/bluecopa_robot/_assets *

@@ -1,0 +1,7 @@
+import sys
+from bluecopa_rpa_sdk.entrypoint import launch
+from rpa.{{robot_module}} import {{RobotClass}}
+
+if __name__ == "__main__":
+    source = {{RobotClass}}()
+    launch(source, sys.argv[1:])

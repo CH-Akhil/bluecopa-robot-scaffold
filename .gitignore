@@ -1,0 +1,15 @@
+# Python build / install artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+
+# Robots generated for testing inside this folder (generate them elsewhere with --dir)
+/invoice_splitter/
+/*_robot/
+/sample_robot/
+/bare_robot/

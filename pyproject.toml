@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bluecopa-robot"
+version = "0.1.0"
+description = "Scaffold a new Bluecopa RPA robot — minimal, runnable, with docs-for-Claude baked in."
+readme = "README.md"
+requires-python = ">=3.9"  # robots target Python 3.9 (SDK wheel + python:3.9-slim); keep the tool aligned
+authors = [{ name = "Bluecopa" }]
+dependencies = []  # stdlib only
+
+[project.scripts]
+bluecopa-robot = "bluecopa_robot.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Ship the template tree and the vendored SDK wheel as package data.
+# Dotfile templates (.gitignore.tmpl, .dockerignore.tmpl) are listed explicitly
+# because a bare "*" glob skips leading-dot files.
+bluecopa_robot = [
+    "_templates/**/*",
+    "_templates/.gitignore.tmpl",
+    "_templates/.dockerignore.tmpl",
+    "_assets/*",
+]

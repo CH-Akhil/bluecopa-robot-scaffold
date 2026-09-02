@@ -1,0 +1,183 @@
+# Building a Bluecopa RPA robot
+
+Everything you need to take `{{robot_title}}` from this scaffold to a robot that runs
+correctly **inside the platform** — not just on your laptop. Read §0 first; it frames
+every other section.
+
+---
+
+## §0 The one rule: local success is not deployment success
+
+A robot that runs perfectly with your local `config.json` and `params.json` can still
+fail the instant it's deployed — because the config the platform passes, the credentials,
+the trigger inputs, and the delivery are all different from what you hand it locally. Most
+of the sharp edges below are invisible until the robot is linked to a real workflow. Treat
+a clean local run as necessary, never sufficient.
+
+---
+
+## §1 The runtime contract
+
+The SDK owns the entrypoint. `main.py` builds your robot and calls `launch()`, which parses
+the CLI and calls **one** method on your class:
+
+```
+run_robot(self, logger, config, input_file_path, output_folder_path, state=None, params=None)
+```
+
+CLI flags the platform (and you, locally) pass to `main.py run`:
+
+| Flag | Meaning |
+|------|---------|
+| `--config` | Path to the JSON config file → arrives as `config`. Built from `spec.json` (see §3). |
+| `--params` | Path to the per-run JSON params → arrives as `params`. The `{"data": ...}` envelope (§2). |
+| `--input-file-path` | **Required by the parser.** For a filebox trigger it's the dropped file's local path (§5). |
+| `--output-folder-path` | Where you write output. **The platform delivers whatever lands here.** |
+
+Keep the 6-argument signature with `params=None` as the last parameter so the robot runs
+on both the older (5-arg) and newer (6-arg) SDK builds.
+
+Write results into `output_folder_path` and let the platform deliver them. Do not assume a
+destination bucket, path, or filebox inside the robot — delivery is configured per client.
+
+---
+
+## §2 Inputs and their provenance
+
+Per-run inputs arrive via `--params` in a Bluecopa envelope:
+
+```json
+{ "data": { "source": "..." } }
+```
+
+`data` may be a JSON **object** or a JSON **string** (the platform sends both forms in
+different places). Always normalize with the `_unwrap_data` helper in `rpa/{{robot_module}}.py`:
+
+```python
+data = self._unwrap_data(params)   # dict either way
+```
+
+`config` (from `--config`) is your operator-set configuration; `params` is the per-run
+payload. `input_file_path` is a file path, not your data — see §5.
+
+---
+
+## §3 Config and the spec — the trap that bites on deploy
+
+`rpa/spec.json` is a JSON Schema that drives the operator's setup form. The SDK validates
+the runtime `config` against it **before** `run_robot` runs.
+
+**The trap:** a `"default"` in `spec.json` only pre-fills the *form*. It is **not** injected
+into the config sent at runtime. So if you mark a field `required` and the config doesn't
+carry it, the run dies before your code with:
+
+```
+'<field>' is a required property
+```
+
+…and the default never helps. Therefore:
+
+- **Genuinely mandatory field** → put it in `required`, and accept that a missing value is a
+  hard failure (that's the point). Don't add a `default` and assume it protects you.
+- **Optional field** → leave it out of `required` and apply the default **in code**
+  (`config.get("x", "…")`).
+
+Keep tuning knobs (worker counts, timeouts) out of `spec.json` as code-owned defaults so
+the setup form stays clean; read them with `config.get(...)` and let them be overridable.
+
+---
+
+## §4 Credentials and storage — ambient only
+
+Inside Bluecopa the container already has credentials and a project. So:
+
+- Create storage clients with **no arguments**: `storage.Client()`. Never pass or hardcode
+  credentials or a project id. (The GCS helper in `rpa/gcs.py`, if you scaffolded with
+  `--gcs`, already does this.)
+- Never read identifiers or secrets from hardcoded constants. Configuration comes from
+  `config`; credentials are ambient.
+- **Local dev** simulates ambient auth with env vars, never config:
+  - `gcloud auth application-default login` then set `GOOGLE_CLOUD_PROJECT` (user ADC has
+    no default project — omitting it gives *"Project was not passed and could not be
+    determined from the environment"*), or
+  - set `GOOGLE_APPLICATION_CREDENTIALS` to a service-account key file (project comes from
+    the key).
+
+---
+
+## §5 Filebox-triggered robots
+
+When a robot is triggered by a file dropped into a filebox, the **platform resolves that
+file into a local path and passes it as `--input-file-path`** before your code runs. Two
+things to know:
+
+- **You usually don't need the dropped file.** A params-driven robot works from
+  `data` (§2) and ignores `input_file_path`. That's fine — but the platform still has to
+  resolve the trigger file, so it must be a real, resolvable file.
+- **The `filebox_file_id` vs `filebox_id` gotcha.** If the workflow wires the robot step's
+  **file** input to the trigger's *box* id instead of the *file* id, the platform fails
+  with `Filebox File with id <X> does not exist` (where `<X>` is the box id) — before your
+  code runs. Fix it in the workflow: pass the trigger's **file** id.
+- **Avoid feedback loops:** never write output into the same filebox that triggers the
+  robot, or a run will re-trigger itself.
+
+---
+
+## §6 Verifying locally
+
+Use a Python 3.9 venv (matches the SDK wheel):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m pip install libs\*.whl
+python main.py run --config secrets\config.json --params secrets\params.json --input-file-path dummy --output-folder-path .\output
+```
+
+To exercise real GCS locally in Docker, mount your ADC file and pass the project:
+
+```
+docker run -v <ADC>:/tmp/adc.json:ro -e GOOGLE_APPLICATION_CREDENTIALS=/tmp/adc.json \
+  -e GOOGLE_CLOUD_PROJECT=<project> <image> python main.py run ...
+```
+
+Remember §0: this proves the logic, not the deployment.
+
+---
+
+## §7 Deploy (client-agnostic)
+
+The robot ships as a `python:3.9-slim` Docker image with the SDK wheel installed
+(see `Dockerfile`).
+
+- **An ECR repository must exist for this robot.** It is created per client — **coordinate
+  with your backend/infra team to create it**. This scaffold names no registry, repo, or
+  path, because those differ for every client.
+- **CI (GitHub Actions) builds the image and pushes it** to that repo. After any code
+  change, the image must be **rebuilt** — otherwise the cluster keeps running the old image.
+- Do not hardcode a registry URL, repo name, or image path anywhere in the robot.
+
+---
+
+## §8 Checklist for shipping a change
+
+- [ ] `run_robot` reads inputs via `_unwrap_data(params)` and `config.get(...)`.
+- [ ] Every setup field is in `spec.json`; `required` vs optional decided per §3 (no
+      `default` mistaken for a runtime safety net).
+- [ ] `spec.json` and `secrets/*.sample.json` updated together; this doc updated too.
+- [ ] No hardcoded credentials, project id, bucket, filebox, registry, or repo.
+- [ ] Output is written to `output_folder_path` only.
+- [ ] Ran locally end-to-end (§6).
+- [ ] Image rebuilt and pushed after the change (§7).
+
+---
+
+## Appendix — symptom → cause
+
+| Symptom (in the pod logs) | Cause / fix |
+|---|---|
+| `'<field>' is a required property` | A `required` spec field wasn't in the runtime config. Either set it in the robot's config, or make it optional + default in code (§3). |
+| `Filebox File with id <X> does not exist` | The workflow passed a **box** id where a **file** id was expected. Wire the trigger's `filebox_file_id` (§5). |
+| `Project was not passed and could not be determined from the environment` | Local run without a project. Set `GOOGLE_CLOUD_PROJECT` (or use a service-account key) (§4). |
+| `unrecognized arguments: --params` | An older SDK wheel is installed. Use the wheel bundled in `libs/`. |
+| Robot runs old behaviour after a fix | The image wasn't rebuilt/pushed — the cluster runs the stale image (§7). |
