@@ -19,7 +19,7 @@ def _prompt(question: str, default: str = "") -> str:
 
 
 def _prompt_yes_no(question: str, default: bool) -> bool:
-    d = "Y/n" if default else "y/N"
+    d = "y/n"
     try:
         answer = input(f"{question} [{d}]: ").strip().lower()
     except EOFError:
@@ -38,11 +38,18 @@ def _cmd_new(args: argparse.Namespace) -> int:
     description = args.description
     gcs = args.gcs
 
-    if interactive:
-        title = title or _prompt("Robot title (shown in the setup form)", module.replace("_", " ").title())
-        description = description or _prompt("One-line description", f"{title} robot")
-        if gcs is None:
-            gcs = _prompt_yes_no("Does this robot read/write GCS?", default=False)
+    # If any flag was explicitly passed, fill remaining fields with defaults
+    # instead of prompting — the user chose non-interactive style.
+    has_any_flag = title is not None or description is not None or gcs is not None
+
+    if interactive and not has_any_flag:
+        title = _prompt("Title for the robot")
+        if not title:
+            title = module.replace("_", " ").title()
+        description = _prompt("Short description")
+        if not description:
+            description = f"{title} robot"
+        gcs = _prompt_yes_no("Does this robot need GCS (Google Cloud Storage)?", default=False)
     else:
         title = title or module.replace("_", " ").title()
         description = description or f"{title} robot"

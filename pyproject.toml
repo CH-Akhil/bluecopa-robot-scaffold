@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bluecopa-robot"
-version = "0.1.0"
+version = "0.1.1"
 description = "Scaffold a new Bluecopa RPA robot — minimal, runnable, with docs-for-Claude baked in."
 readme = "README.md"
 requires-python = ">=3.9"  # robots target Python 3.9 (SDK wheel + python:3.9-slim); keep the tool aligned
