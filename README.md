@@ -8,55 +8,21 @@ human or Claude exactly how to build and deploy it.
 
 ## Install (one time)
 
-**Prerequisite:** Python 3.9 (the same version the robots run on).
-
-"Installing" here means turning `bluecopa-robot` into a command you can type in any
-terminal. You only do this once.
+**Prerequisite:** Python 3.9+ (the same version the robots run on).
 
 ```bash
-# 1. Be inside this scaffold folder — the one that contains pyproject.toml.
-#    (If you're already here, skip this. Otherwise cd into it.)
-cd path\to\bluecopa-robot-scaffold
-
-# 2. Install it as a command
-pip install -e .
+pip install bluecopa-robot
 ```
 
-What that second line does:
-- `pip install` — install a Python tool.
-- `.` — "the project in the current folder" (this scaffold).
-- `-e` — *editable* install: it points at these files instead of copying them, so if the
-  template is ever updated, you get the update without reinstalling.
-
-After it finishes, the command `bluecopa-robot` works from anywhere. Check it:
+That's it — the `bluecopa-robot` command now works from anywhere. Check it:
 
 ```bash
 bluecopa-robot --version      # prints: bluecopa-robot 0.1.0
 ```
 
-> Prefer an isolated install? `pipx install .` instead of `pip install -e .` — same result,
-> the command just lives in its own environment.
-
-### For your team — install without cloning
-
-Colleagues do **not** need this repo. `pip` installs the tool straight from git, so all
-they run is:
-
-```bash
-pip install "git+https://github.com/CH-Akhil/bluecopa-robot-scaffold.git"
-bluecopa-robot new my_robot
-```
-
-That one `pip install` downloads and installs the `bluecopa-robot` command (templates and
-the SDK wheel are bundled inside it). After it, `bluecopa-robot new …` works anywhere.
-
-> Cleaner still: `pipx install "git+https://github.com/CH-Akhil/bluecopa-robot-scaffold.git"`
-> — installs the command in its own isolated environment. Update later with
-> `pipx upgrade bluecopa-robot` (or re-run the `pip install` with `--upgrade`).
-
-**This repo is private**, so the install needs GitHub auth:
-- **SSH** (simplest if you have keys set up): `pip install "git+ssh://git@github.com/CH-Akhil/bluecopa-robot-scaffold.git"`
-- **HTTPS + token**: `pip install "git+https://<your-token>@github.com/CH-Akhil/bluecopa-robot-scaffold.git"`
+> Prefer an isolated install? `pipx install bluecopa-robot` — same result,
+> the command just lives in its own environment. Update later with
+> `pipx upgrade bluecopa-robot` (or `pip install --upgrade bluecopa-robot`).
 
 ## Use — create a robot
 
